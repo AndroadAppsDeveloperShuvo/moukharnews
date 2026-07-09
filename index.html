@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>নিউজ ব্যানার মেকার</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tiro+Bangla:ital@0;1&display=swap');
+        body { font-family: 'Tiro Bangla', serif; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen p-4 flex flex-col items-center">
+
+    <div class="w-full max-w-3xl bg-gray-800 rounded-xl shadow-2xl p-6 mt-4 border border-gray-700">
+        <h2 class="text-3xl font-bold text-center mb-6 text-red-500">ব্যানার জেনারেটর</h2>
+
+        <div id="errorAlert" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+            <strong class="font-bold">সতর্কতা!</strong> ফ্রেমের ছবিটি লোড হয়নি।
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium mb-1 text-gray-300">যেকোনো ছবি আপলোড করুন</label>
+                <input type="file" id="imageUpload" accept="image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-red-600 file:text-white hover:file:bg-red-700 cursor-pointer">
+            </div>
+            
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium mb-1 text-gray-300">প্রধান শিরোনাম (Headline)</label>
+                <input type="text" id="headline" value="ফিফাকে কিনে নিলো মেসি" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-lg">
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium mb-1 text-gray-300">তারিখ</label>
+                <input type="text" id="dateText" value="৯ জুলাই ২০২৬" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-lg">
+            </div>
+        </div>
+
+        <div class="mb-6 flex justify-center w-full overflow-hidden bg-gray-900 rounded-lg p-1 border border-gray-600">
+            <canvas id="bannerCanvas" class="w-full max-w-full h-auto shadow-md"></canvas>
+        </div>
+
+        <button id="downloadBtn" class="w-full bg-red-600 hover:bg-red-700 text-white text-xl font-bold py-3 px-4 rounded-md transition duration-300">
+            ব্যানার ডাউনলোড করুন
+        </button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('bannerCanvas');
+        const ctx = canvas.getContext('2d');
+        const imageUpload = document.getElementById('imageUpload');
+        const headlineInput = document.getElementById('headline');
+        const dateInput = document.getElementById('dateText');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const errorAlert = document.getElementById('errorAlert');
+
+        let uploadedImage = new Image();
+        let frameImage = new Image();
+        
+        frameImage.crossOrigin = "anonymous";
+        frameImage.src = './IMG_2220.jpeg'; // আপনার গিটহাবের ফ্রেমের নাম
+
+        frameImage.onerror = () => {
+            errorAlert.classList.remove('hidden');
+        };
+
+        function drawCanvas() {
+            if (!frameImage.complete || frameImage.naturalWidth === 0) return;
+
+            // ক্যানভাসের সাইজ ফ্রেমের আসল সাইজ অনুযায়ী ফিক্স করা
+            canvas.width = frameImage.naturalWidth;
+            canvas.height = frameImage.naturalHeight;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // ১. প্রথমে ফ্রেম ড্র করা
+            ctx.drawImage(frameImage, 0, 0, canvas.width, canvas.height);
+
+            // ২. ছবি আপলোড হলে সেটাকে ধূসর বক্সে বসানো
+            if (uploadedImage.src && uploadedImage.complete) {
+                // আপনার ফ্রেমের ধূসর বক্সের মাপ (খুব সাবধানে সেট করা হয়েছে)
+                const padding = canvas.width * 0.008; // চারপাশের চিকন বর্ডার
+                const boxX = padding;
+                const boxY = padding;
+                const boxW = canvas.width - (padding * 2);
+                const boxH = canvas.height * 0.735; // লাল ব্যানারের ওপর পর্যন্ত
+
+                const imgRatio = uploadedImage.width / uploadedImage.height;
+                const boxRatio = boxW / boxH;
+                let drawW, drawH, drawX, drawY;
+
+                // Object-fit: cover লজিক
+                if (imgRatio > boxRatio) {
+                    drawH = boxH;
+                    drawW = uploadedImage.width * (boxH / uploadedImage.height);
+                    drawX = boxX - (drawW - boxW) / 2;
+                    drawY = boxY;
+                } else {
+                    drawW = boxW;
+                    drawH = uploadedImage.height * (boxW / uploadedImage.width);
+                    drawX = boxX;
+                    drawY = boxY - (drawH - boxH) / 2;
+                }
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(boxX, boxY, boxW, boxH);
+                ctx.clip(); 
+                ctx.drawImage(uploadedImage, drawX, drawY, drawW, drawH);
+                ctx.restore();
+            }
+
+            // ৩. হেডলাইন (স্মার্ট অটো-রিসাইজ লজিক)
+            let headlineText = headlineInput.value;
+            let fontSize = canvas.width * 0.07; // ডিফল্ট বড় ফন্ট
+            ctx.font = `bold ${fontSize}px 'Tiro Bangla', serif`;
+            
+            // লেখা বড় হলে ফন্ট সাইজ নিজে থেকে কমবে
+            const maxTextWidth = canvas.width * 0.90; // লাল বক্সের ৯০% জায়গা পর্যন্ত লেখা যাবে
+            while (ctx.measureText(headlineText).width > maxTextWidth && fontSize > 20) {
+                fontSize -= 2; // ফন্ট ছোট করতে থাকবে যতক্ষণ না ফিট হয়
+                ctx.font = `bold ${fontSize}px 'Tiro Bangla', serif`;
+            }
+
+            ctx.fillStyle = "white";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            // হেডলাইনের ওয়াই পজিশন
+            const headlineY = canvas.height * 0.84; 
+            ctx.fillText(headlineText, canvas.width / 2, headlineY);
+
+            // ৪. তারিখ
+            const dateFontSize = canvas.width * 0.035;
+            ctx.font = `${dateFontSize}px 'Tiro Bangla', serif`;
+            ctx.textAlign = "right";
+            
+            const dateX = canvas.width * 0.96;
+            const dateY = canvas.height * 0.93;
+            ctx.fillText(dateInput.value, dateX, dateY); 
+        }
+
+        frameImage.onload = () => {
+            errorAlert.classList.add('hidden');
+            drawCanvas();
+        };
+        
+        imageUpload.addEventListener('change', (e) => {
+            if(e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    uploadedImage.src = event.target.result;
+                    uploadedImage.onload = drawCanvas;
+                }
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+
+        headlineInput.addEventListener('input', drawCanvas);
+        dateInput.addEventListener('input', drawCanvas);
+
+        downloadBtn.addEventListener('click', () => {
+            try {
+                const link = document.createElement('a');
+                link.download = 'news-banner-final.png';
+                link.href = canvas.toDataURL('image/png', 1.0);
+                link.click();
+            } catch (err) {
+                alert("ডাউনলোডে সমস্যা হয়েছে।");
+            }
+        });
+
+        setTimeout(drawCanvas, 1000);
+    </script>
+</body>
+</html>
