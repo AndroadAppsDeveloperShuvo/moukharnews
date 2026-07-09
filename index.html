@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>নিউজ ব্যানার জেনারেটর</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tiro+Bangla&display=swap');
+        /* Custom font for better Bengali rendering */
+        body { font-family: 'Tiro Bangla', serif; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen p-4 flex flex-col items-center">
+
+    <div class="w-full max-w-2xl bg-gray-800 rounded-xl shadow-2xl p-6 mt-8 border border-gray-700">
+        <h2 class="text-3xl font-bold text-center mb-6 text-red-500">ব্যানার তৈরি করুন</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium mb-1">ছবি আপলোড করুন</label>
+                <input type="file" id="imageUpload" accept="image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-red-600 file:text-white hover:file:bg-red-700 cursor-pointer">
+            </div>
+            
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium mb-1">প্রধান শিরোনাম (Headline)</label>
+                <input type="text" id="headline" placeholder="আজ চিরনিদ্রায় শায়িত হবেন খামেনি" value="আজ চিরনিদ্রায় শায়িত হবেন খামেনি" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium mb-1">তারিখ</label>
+                <input type="text" id="dateText" placeholder="৯ জুলাই ২০২৬" value="৯ জুলাই ২০২৬" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+            </div>
+        </div>
+
+        <div class="mb-6 flex justify-center">
+            <canvas id="bannerCanvas" width="1080" height="960" class="w-full h-auto bg-gray-700 rounded-md shadow-lg border border-gray-600"></canvas>
+        </div>
+
+        <button id="downloadBtn" class="w-full bg-red-600 hover:bg-red-700 text-white text-lg font-bold py-3 px-4 rounded-md transition duration-300 shadow-lg">
+            ব্যানার ডাউনলোড করুন
+        </button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('bannerCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const imageUpload = document.getElementById('imageUpload');
+        const headlineInput = document.getElementById('headline');
+        const dateInput = document.getElementById('dateText');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        let uploadedImage = new Image();
+        let frameImage = new Image();
+        
+        // ⚠️ আপনার দেওয়া ফ্রেমের ছবিটি 'frame.png' নামে এই HTML ফাইলের ফোল্ডারে রাখুন
+        frameImage.src = 'frame.png'; 
+
+        // Main Drawing Function
+        function drawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw the Frame first
+            if (frameImage.complete) {
+                ctx.drawImage(frameImage, 0, 0, canvas.width, canvas.height);
+            }
+
+            // 2. Draw Uploaded Photo EXACTLY over the grey area using Object-Fit Cover logic
+            if (uploadedImage.src) {
+                // ধূসর বক্সের পজিশন ও সাইজ (ফ্রেমের ছবির উপর ভিত্তি করে মাপা)
+                const boxX = 40;
+                const boxY = 40;
+                const boxW = 1000;
+                const boxH = 635;
+
+                const imgRatio = uploadedImage.width / uploadedImage.height;
+                const boxRatio = boxW / boxH;
+                let drawW, drawH, drawX, drawY;
+
+                // Center crop logic (Object-fit: cover)
+                if (imgRatio > boxRatio) {
+                    drawH = boxH;
+                    drawW = uploadedImage.width * (boxH / uploadedImage.height);
+                    drawX = boxX - (drawW - boxW) / 2;
+                    drawY = boxY;
+                } else {
+                    drawW = boxW;
+                    drawH = uploadedImage.height * (boxW / uploadedImage.width);
+                    drawX = boxX;
+                    drawY = boxY - (drawH - boxH) / 2;
+                }
+
+                ctx.save();
+                // Create a clipping path so image doesn't go outside the grey box
+                ctx.beginPath();
+                ctx.rect(boxX, boxY, boxW, boxH);
+                ctx.clip();
+                // Draw the user photo
+                ctx.drawImage(uploadedImage, drawX, drawY, drawW, drawH);
+                ctx.restore();
+            }
+
+            // 3. Draw Headline Text in the Red Area
+            ctx.fillStyle = "white";
+            ctx.textAlign = "center";
+            ctx.font = "bold 65px 'Tiro Bangla', sans-serif"; 
+            // হেডলাইনের পজিশন (X, Y)
+            ctx.fillText(headlineInput.value, canvas.width / 2, 810); 
+
+            // 4. Draw Date Text
+            ctx.textAlign = "right";
+            ctx.font = "35px 'Tiro Bangla', sans-serif";
+            // তারিখের পজিশন (X, Y)
+            ctx.fillText(dateInput.value, canvas.width - 60, 880); 
+        }
+
+        // Trigger drawing when frame loads
+        frameImage.onload = drawCanvas;
+        
+        // Handle Image Upload
+        imageUpload.addEventListener('change', (e) => {
+            if(e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    uploadedImage.src = event.target.result;
+                    uploadedImage.onload = drawCanvas;
+                }
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+
+        // Live text update
+        headlineInput.addEventListener('input', drawCanvas);
+        dateInput.addEventListener('input', drawCanvas);
+
+        // Download functionality
+        downloadBtn.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'news-banner-final.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+
+        // Initial draw fallback
+        setTimeout(drawCanvas, 500);
+    </script>
+</body>
+</html>
